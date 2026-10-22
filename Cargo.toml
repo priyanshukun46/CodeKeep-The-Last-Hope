@@ -1,0 +1,15 @@
+[package]
+name = "codekeep"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bevy = "0.15"
+
+# Enable a small amount of optimization in debug mode for snappy gameplay
+[profile.dev]
+opt-level = 1
+
+# Enable high optimizations for dependencies (wgpu, image, etc.) so dev builds run smoothly
+[profile.dev.package."*"]
+opt-level = 3
