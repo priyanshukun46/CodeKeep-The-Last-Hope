@@ -9,8 +9,9 @@ pub struct UiPlugin;
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, (hud::setup_hud, menu::setup_main_menu))
+        app.add_systems(Startup, hud::setup_hud)
             .add_systems(OnEnter(GameState::MainMenu), menu::setup_main_menu)
+            .add_systems(OnExit(GameState::MainMenu), menu::cleanup_main_menu)
             .add_systems(
                 Update,
                 (

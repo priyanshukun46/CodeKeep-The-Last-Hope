@@ -1,15 +1,31 @@
 use super::path::MapPath;
+use crate::iso::{IsoCoord, IsoMap};
 use bevy::prelude::*;
 use std::collections::HashSet;
 
+#[allow(dead_code)]
 pub const CELL_SIZE: f32 = 40.0;
+#[allow(dead_code)]
 pub const PATH_CLEARANCE: f32 = 36.0;
+#[allow(dead_code)]
 pub const REFUGE_CLEARANCE: f32 = 50.0;
 
 /// Grid coordinates representing discretized battlefield construction cells.
 pub type GridCoord = (i32, i32);
 
+/// Validates whether construction can take place on the authoritative isometric diamond grid.
+pub fn can_build_iso(coord: IsoCoord, iso_map: &IsoMap, occupied: &OccupiedCells) -> bool {
+    if !iso_map.contains(coord) {
+        return false;
+    }
+    if occupied.is_occupied(coord) {
+        return false;
+    }
+    true
+}
+
 /// Converts a continuous 2D world position into discrete grid coordinates.
+#[allow(dead_code)]
 pub fn world_to_grid(world_pos: Vec2) -> GridCoord {
     (
         (world_pos.x / CELL_SIZE).round() as i32,
@@ -18,6 +34,7 @@ pub fn world_to_grid(world_pos: Vec2) -> GridCoord {
 }
 
 /// Converts discrete grid coordinates back to the center of the world cell.
+#[allow(dead_code)]
 pub fn grid_to_world(coord: GridCoord) -> Vec2 {
     Vec2::new(coord.0 as f32 * CELL_SIZE, coord.1 as f32 * CELL_SIZE)
 }
@@ -44,6 +61,7 @@ impl OccupiedCells {
 }
 
 /// Validates whether a defensive tower can be constructed at the specified grid coordinate.
+#[allow(dead_code)]
 pub fn can_build(
     coord: GridCoord,
     world_pos: Vec2,
@@ -132,5 +150,23 @@ mod tests {
             &path,
             refuge_pos
         ));
+    }
+
+    #[test]
+    fn test_can_build_iso_authoritative() {
+        let iso_map = IsoMap::default();
+        let mut occupied = OccupiedCells::default();
+
+        // Valid inside test sector (-4..=4)
+        let valid_coord = (2, -1);
+        assert!(can_build_iso(valid_coord, &iso_map, &occupied));
+
+        // Mark as occupied
+        occupied.occupy(valid_coord);
+        assert!(!can_build_iso(valid_coord, &iso_map, &occupied));
+
+        // Out of bounds coordinate
+        let oob_coord = (10, -10);
+        assert!(!can_build_iso(oob_coord, &iso_map, &occupied));
     }
 }

@@ -1,8 +1,10 @@
 use super::components::{AttackCooldown, CurrentTarget, PlacementGhost, Tower, TowerRange};
 use crate::audio::{PlaySoundEvent, SoundEffect};
-use crate::core::resources::{PlayerResources, Refuge};
-use crate::map::grid::{OccupiedCells, can_build, grid_to_world, world_to_grid};
-use crate::map::path::MapPath;
+use crate::core::resources::PlayerResources;
+use crate::iso::{
+    IsoMap, SelectedIsoTile, iso_grid_to_world, iso_tile_vertices, iso_world_to_grid,
+};
+use crate::map::grid::{OccupiedCells, can_build_iso};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
@@ -59,12 +61,11 @@ pub fn update_cursor_world_coords_system(
     cursor_coords.0 = None;
 }
 
-/// Updates the placement ghost position, validity colors, and range preview ring.
+/// Updates the placement ghost position, validity colors, and isometric diamond preview ring.
 pub fn tower_placement_preview_system(
     cursor_coords: Res<CursorWorldCoords>,
     occupied: Res<OccupiedCells>,
-    path: Res<MapPath>,
-    refuge: Res<Refuge>,
+    iso_map: Res<IsoMap>,
     resources: Res<PlayerResources>,
     mut gizmos: Gizmos,
     mut ghost_query: Query<(&mut Transform, &mut Sprite, &mut Visibility), With<PlacementGhost>>,
@@ -79,11 +80,17 @@ pub fn tower_placement_preview_system(
         return;
     };
 
-    *ghost_vis = Visibility::Visible;
-    let grid_coord = world_to_grid(raw_world_pos);
-    let snapped_pos = grid_to_world(grid_coord);
+    let grid_coord = iso_world_to_grid(raw_world_pos);
 
-    let can_place = can_build(grid_coord, snapped_pos, &occupied, &path, refuge.position);
+    if !iso_map.contains(grid_coord) {
+        *ghost_vis = Visibility::Hidden;
+        return;
+    }
+
+    *ghost_vis = Visibility::Visible;
+    let snapped_pos = iso_grid_to_world(grid_coord.0, grid_coord.1);
+
+    let can_place = can_build_iso(grid_coord, &iso_map, &occupied);
     let can_afford = resources.can_afford(TURRET_BUILD_COST);
     let is_valid = can_place && can_afford;
 
@@ -92,30 +99,48 @@ pub fn tower_placement_preview_system(
     let (color, ring_color) = if is_valid {
         (
             Color::srgba(0.2, 0.8, 0.4, 0.55),
-            Color::srgba(0.2, 0.9, 0.4, 0.6),
+            Color::srgba(0.2, 0.9, 0.4, 0.75),
         )
     } else {
         (
             Color::srgba(0.9, 0.2, 0.2, 0.55),
-            Color::srgba(0.9, 0.2, 0.2, 0.6),
+            Color::srgba(0.9, 0.2, 0.2, 0.75),
         )
     };
 
     ghost_sprite.color = color;
 
-    // Draw range preview ring
-    gizmos.circle_2d(snapped_pos, 160.0, ring_color);
+    // Draw authoritative diamond tile outline aligning construction preview with isometric grid
+    let vertices = iso_tile_vertices(snapped_pos);
+    let strip = [
+        vertices[0],
+        vertices[1],
+        vertices[2],
+        vertices[3],
+        vertices[0],
+    ];
+    gizmos.linestrip_2d(strip, ring_color);
+    gizmos.circle_2d(
+        snapped_pos,
+        160.0,
+        Color::srgba(
+            ring_color.to_srgba().red,
+            ring_color.to_srgba().green,
+            ring_color.to_srgba().blue,
+            0.35,
+        ),
+    );
 }
 
-/// Handles player left-click input to construct defensive turrets on valid ground.
+/// Handles player left-click input to construct defensive structures on the authoritative isometric grid.
 pub fn tower_placement_input_system(
     mut commands: Commands,
     mouse_button: Res<ButtonInput<MouseButton>>,
     cursor_coords: Res<CursorWorldCoords>,
     mut occupied: ResMut<OccupiedCells>,
-    path: Res<MapPath>,
-    refuge: Res<Refuge>,
+    iso_map: Res<IsoMap>,
     mut resources: ResMut<PlayerResources>,
+    mut selected_iso: ResMut<SelectedIsoTile>,
     mut sound_events: EventWriter<PlaySoundEvent>,
 ) {
     if !mouse_button.just_pressed(MouseButton::Left) {
@@ -126,10 +151,9 @@ pub fn tower_placement_input_system(
         return;
     };
 
-    let grid_coord = world_to_grid(raw_world_pos);
-    let snapped_pos = grid_to_world(grid_coord);
+    let grid_coord = iso_world_to_grid(raw_world_pos);
 
-    if !can_build(grid_coord, snapped_pos, &occupied, &path, refuge.position) {
+    if !can_build_iso(grid_coord, &iso_map, &occupied) {
         return;
     }
 
@@ -138,9 +162,12 @@ pub fn tower_placement_input_system(
     }
 
     occupied.occupy(grid_coord);
+    selected_iso.0 = Some(grid_coord);
     sound_events.send(PlaySoundEvent(SoundEffect::BuildTurret));
 
-    // Spawn Tower base and barrel
+    let snapped_pos = iso_grid_to_world(grid_coord.0, grid_coord.1);
+
+    // Spawn structure base aligned with the authoritative isometric diamond center
     commands.spawn((
         Tower {
             cost: TURRET_BUILD_COST,
@@ -151,7 +178,7 @@ pub fn tower_placement_input_system(
         CurrentTarget::default(),
         Sprite {
             color: Color::srgb(0.2, 0.6, 0.95), // High-tech cobalt blue
-            custom_size: Some(Vec2::new(28.0, 28.0)),
+            custom_size: Some(Vec2::new(26.0, 26.0)),
             ..default()
         },
         Transform::from_xyz(snapped_pos.x, snapped_pos.y, 2.0),

@@ -140,7 +140,9 @@ pub fn setup_hud(mut commands: Commands) {
             ))
             .with_children(|bottom_bar| {
                 bottom_bar.spawn((
-                    Text::new("[LMB] Build Pulse Turret (Cost: 50 Scrap | Range: 160px | Dmg: 25)"),
+                    Text::new(
+                        "[LMB] Inspect / Construct on Isometric Grid (50 Scrap)  |  [P / ESC] Pause  |  [R] Reset",
+                    ),
                     TextFont {
                         font_size: 13.0,
                         ..default()

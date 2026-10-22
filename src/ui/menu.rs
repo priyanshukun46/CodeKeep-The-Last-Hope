@@ -34,9 +34,9 @@ pub fn setup_main_menu(mut commands: Commands) {
             ));
 
             root.spawn((
-                Text::new("— THE LAST HOPE —"),
+                Text::new("— AN ISOMETRIC CITY-RESTORATION SANDBOX —"),
                 TextFont {
-                    font_size: 20.0,
+                    font_size: 18.0,
                     ..default()
                 },
                 TextColor(Color::srgb(0.95, 0.75, 0.2)),
@@ -57,9 +57,9 @@ pub fn setup_main_menu(mut commands: Commands) {
             .with_children(|briefing| {
                 briefing.spawn((
                     Text::new(
-                        "Earth has fallen to rogue automata and hostile biomorphs.\n\
-                         You are the final defense architect guarding humanity's last Refuge Core.\n\
-                         Harvest combat scrap, erect automated defensive turrets, and repel the incursions.",
+                        "You awaken amidst the silent ruins of a long-abandoned metropolis.\n\
+                         No directives or prescribed paths remain.\n\
+                         Survey decaying city sectors, inspect foundations, and engineer automated systems to rebuild.",
                     ),
                     TextFont {
                         font_size: 14.0,
@@ -82,7 +82,7 @@ pub fn setup_main_menu(mut commands: Commands) {
             ))
             .with_children(|btn| {
                 btn.spawn((
-                    Text::new("[ PRESS SPACE OR ENTER TO LAUNCH DEFENSE ]"),
+                    Text::new("[ PRESS SPACE OR ENTER TO ENTER THE RUINS ]"),
                     TextFont {
                         font_size: 18.0,
                         ..default()
@@ -111,7 +111,7 @@ pub fn setup_main_menu(mut commands: Commands) {
                     TextColor(Color::srgb(0.5, 0.6, 0.7)),
                 ));
                 hints.spawn((
-                    Text::new("[LMB] Construct Pulse Turret (50 Scrap)  |  [P / ESC] Pause Game  |  [R] Restart"),
+                    Text::new("[LMB] Inspect / Select Isometric Tile  |  [P / ESC] Pause  |  [R] Reset"),
                     TextFont {
                         font_size: 13.0,
                         ..default()
@@ -122,22 +122,24 @@ pub fn setup_main_menu(mut commands: Commands) {
         });
 }
 
+/// Cleans up all main menu UI elements when leaving the MainMenu state.
+pub fn cleanup_main_menu(mut commands: Commands, menu_query: Query<Entity, With<MainMenuScreen>>) {
+    for entity in menu_query.iter() {
+        commands.entity(entity).despawn_recursive();
+    }
+}
+
 /// Listens for start keys to transition from MainMenu to Playing.
 pub fn main_menu_input_system(
-    mut commands: Commands,
     keyboard: Res<ButtonInput<KeyCode>>,
     mouse_button: Res<ButtonInput<MouseButton>>,
     mut next_state: ResMut<NextState<GameState>>,
     mut sound_events: EventWriter<PlaySoundEvent>,
-    menu_query: Query<Entity, With<MainMenuScreen>>,
 ) {
     if keyboard.just_pressed(KeyCode::Space)
         || keyboard.just_pressed(KeyCode::Enter)
         || mouse_button.just_pressed(MouseButton::Left)
     {
-        for entity in menu_query.iter() {
-            commands.entity(entity).despawn_recursive();
-        }
         sound_events.send(PlaySoundEvent(SoundEffect::BuildTurret));
         next_state.set(GameState::Playing);
     }

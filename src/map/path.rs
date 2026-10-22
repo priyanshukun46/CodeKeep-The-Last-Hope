@@ -37,6 +37,7 @@ impl MapPath {
     }
 
     /// Calculates the shortest Euclidean distance from a test point to a line segment [a, b].
+    #[allow(dead_code)]
     pub fn distance_to_segment(point: Vec2, a: Vec2, b: Vec2) -> f32 {
         let ab = b - a;
         let len_sq = ab.length_squared();
@@ -49,6 +50,7 @@ impl MapPath {
     }
 
     /// Checks whether a given point is within `clearance` distance of any segment along the path.
+    #[allow(dead_code)]
     pub fn is_near_path(&self, point: Vec2, clearance: f32) -> bool {
         for window in self.waypoints.windows(2) {
             let (a, b) = (window[0], window[1]);
