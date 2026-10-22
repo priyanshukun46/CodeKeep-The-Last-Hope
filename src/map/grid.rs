@@ -1,6 +1,6 @@
+use super::path::MapPath;
 use bevy::prelude::*;
 use std::collections::HashSet;
-use super::path::MapPath;
 
 pub const CELL_SIZE: f32 = 40.0;
 pub const PATH_CLEARANCE: f32 = 36.0;
@@ -95,18 +95,42 @@ mod tests {
         // A valid open build spot
         let valid_coord = (0, 0);
         let valid_world = grid_to_world(valid_coord);
-        assert!(can_build(valid_coord, valid_world, &occupied, &path, refuge_pos));
+        assert!(can_build(
+            valid_coord,
+            valid_world,
+            &occupied,
+            &path,
+            refuge_pos
+        ));
 
         // Mark as occupied
         occupied.occupy(valid_coord);
-        assert!(!can_build(valid_coord, valid_world, &occupied, &path, refuge_pos));
+        assert!(!can_build(
+            valid_coord,
+            valid_world,
+            &occupied,
+            &path,
+            refuge_pos
+        ));
 
         // Directly on top of path
         let on_path = (-6, 4); // (-240, 160) which is waypoint 1
-        assert!(!can_build(on_path, grid_to_world(on_path), &occupied, &path, refuge_pos));
+        assert!(!can_build(
+            on_path,
+            grid_to_world(on_path),
+            &occupied,
+            &path,
+            refuge_pos
+        ));
 
         // Directly on top of refuge
         let on_refuge = world_to_grid(refuge_pos);
-        assert!(!can_build(on_refuge, grid_to_world(on_refuge), &occupied, &path, refuge_pos));
+        assert!(!can_build(
+            on_refuge,
+            grid_to_world(on_refuge),
+            &occupied,
+            &path,
+            refuge_pos
+        ));
     }
 }

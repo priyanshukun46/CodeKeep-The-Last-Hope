@@ -1,6 +1,8 @@
-use bevy::prelude::*;
 use super::damage::DamageEvent;
+use super::effects::HitSpark;
+use crate::audio::{PlaySoundEvent, SoundEffect};
 use crate::enemy::components::Health;
+use bevy::prelude::*;
 
 /// Kinetic/plasma projectile flying toward an enemy.
 #[derive(Component, Debug, Clone)]
@@ -15,6 +17,7 @@ pub fn projectile_movement_system(
     mut commands: Commands,
     time: Res<Time>,
     mut damage_events: EventWriter<DamageEvent>,
+    mut sound_events: EventWriter<PlaySoundEvent>,
     target_query: Query<&Transform, (With<Health>, Without<Projectile>)>,
     mut projectile_query: Query<(Entity, &Projectile, &mut Transform)>,
 ) {
@@ -33,10 +36,19 @@ pub fn projectile_movement_system(
                     target: projectile.target,
                     amount: projectile.damage,
                 });
+                sound_events.send(PlaySoundEvent(SoundEffect::Impact));
+
+                // Visual plasma impact spark
+                commands.spawn(HitSpark {
+                    position: current_pos,
+                    timer: Timer::from_seconds(0.12, TimerMode::Once),
+                });
+
                 commands.entity(proj_entity).despawn();
             } else {
                 let direction = to_target.normalize();
-                proj_transform.translation += (direction * projectile.speed * delta_secs).extend(0.0);
+                proj_transform.translation +=
+                    (direction * projectile.speed * delta_secs).extend(0.0);
 
                 // Rotate projectile towards target
                 let angle = direction.y.atan2(direction.x);

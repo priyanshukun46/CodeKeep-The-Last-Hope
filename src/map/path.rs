@@ -10,12 +10,12 @@ impl Default for MapPath {
     fn default() -> Self {
         Self {
             waypoints: vec![
-                Vec2::new(-540.0, 160.0), // Spawn Portal
-                Vec2::new(-240.0, 160.0), // Turn south
+                Vec2::new(-540.0, 160.0),  // Spawn Portal
+                Vec2::new(-240.0, 160.0),  // Turn south
                 Vec2::new(-240.0, -120.0), // Turn east
                 Vec2::new(120.0, -120.0),  // Turn north
                 Vec2::new(120.0, 120.0),   // Turn east toward refuge
-                Vec2::new(420.0, 120.0),   // Refuge Gate
+                Vec2::new(460.0, 120.0),   // Refuge Gate
             ],
         }
     }

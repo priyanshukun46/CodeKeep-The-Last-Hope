@@ -1,6 +1,17 @@
-use bevy::prelude::*;
+use crate::combat::projectile::Projectile;
 use crate::core::resources::{PlayerResources, Refuge};
+use crate::core::state::GameState;
+use crate::enemy::components::Enemy;
 use crate::enemy::wave::WaveManager;
+use crate::map::grid::OccupiedCells;
+use crate::tower::components::Tower;
+use bevy::prelude::*;
+
+#[derive(Component)]
+pub struct EndGameScreen;
+
+#[derive(Component)]
+pub struct HudRoot;
 
 #[derive(Component)]
 pub struct RefugeHealthText;
@@ -19,6 +30,7 @@ pub fn setup_hud(mut commands: Commands) {
     // Root container covering the viewport
     commands
         .spawn((
+            HudRoot,
             Node {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
@@ -27,6 +39,7 @@ pub fn setup_hud(mut commands: Commands) {
                 padding: UiRect::all(Val::Px(16.0)),
                 ..default()
             },
+            Visibility::Hidden,
             // Transparent container so world clicks pass through
         ))
         .with_children(|root| {
@@ -127,9 +140,7 @@ pub fn setup_hud(mut commands: Commands) {
             ))
             .with_children(|bottom_bar| {
                 bottom_bar.spawn((
-                    Text::new(
-                        "[LMB] Build Pulse Turret (Cost: 50 Scrap | Range: 160px | Dmg: 25)",
-                    ),
+                    Text::new("[LMB] Build Pulse Turret (Cost: 50 Scrap | Range: 160px | Dmg: 25)"),
                     TextFont {
                         font_size: 13.0,
                         ..default()
@@ -145,10 +156,31 @@ pub fn update_hud_system(
     refuge: Res<Refuge>,
     resources: Res<PlayerResources>,
     wave_manager: Res<WaveManager>,
-    mut hp_text_query: Query<&mut Text, (With<RefugeHealthText>, Without<ScrapText>, Without<WaveInfoText>)>,
+    mut hp_text_query: Query<
+        &mut Text,
+        (
+            With<RefugeHealthText>,
+            Without<ScrapText>,
+            Without<WaveInfoText>,
+        ),
+    >,
     mut hp_bar_query: Query<&mut Node, With<RefugeHealthBarFill>>,
-    mut scrap_text_query: Query<&mut Text, (With<ScrapText>, Without<RefugeHealthText>, Without<WaveInfoText>)>,
-    mut wave_text_query: Query<&mut Text, (With<WaveInfoText>, Without<RefugeHealthText>, Without<ScrapText>)>,
+    mut scrap_text_query: Query<
+        &mut Text,
+        (
+            With<ScrapText>,
+            Without<RefugeHealthText>,
+            Without<WaveInfoText>,
+        ),
+    >,
+    mut wave_text_query: Query<
+        &mut Text,
+        (
+            With<WaveInfoText>,
+            Without<RefugeHealthText>,
+            Without<ScrapText>,
+        ),
+    >,
 ) {
     // 1. Update Refuge Health
     let fraction = refuge.health_fraction();
@@ -182,7 +214,11 @@ pub fn update_hud_system(
             let total = wave_manager.total_waves();
             **text = format!(
                 "{} ({}/{}) — Spawned: {}/{}",
-                wave.name, wave_num, total, wave_manager.enemies_spawned_this_wave, wave.enemy_count
+                wave.name,
+                wave_num,
+                total,
+                wave_manager.enemies_spawned_this_wave,
+                wave.enemy_count
             );
         }
     }
@@ -192,6 +228,7 @@ pub fn update_hud_system(
 pub fn setup_game_over_screen(mut commands: Commands) {
     commands
         .spawn((
+            EndGameScreen,
             Node {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
@@ -220,6 +257,14 @@ pub fn setup_game_over_screen(mut commands: Commands) {
                 },
                 TextColor(Color::srgb(0.8, 0.7, 0.7)),
             ));
+            panel.spawn((
+                Text::new("[Press R to Restart Defense]  |  [Press M for Main Menu]"),
+                TextFont {
+                    font_size: 17.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(0.4, 0.85, 1.0)),
+            ));
         });
 }
 
@@ -227,6 +272,7 @@ pub fn setup_game_over_screen(mut commands: Commands) {
 pub fn setup_victory_screen(mut commands: Commands) {
     commands
         .spawn((
+            EndGameScreen,
             Node {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
@@ -248,12 +294,94 @@ pub fn setup_victory_screen(mut commands: Commands) {
                 TextColor(Color::srgb(0.2, 0.95, 0.5)),
             ));
             panel.spawn((
-                Text::new("All hostile waves neutralized. The seeds of humanity's rebirth take root."),
+                Text::new(
+                    "All hostile waves neutralized. The seeds of humanity's rebirth take root.",
+                ),
                 TextFont {
                     font_size: 16.0,
                     ..default()
                 },
                 TextColor(Color::srgb(0.7, 0.85, 0.8)),
             ));
+            panel.spawn((
+                Text::new("[Press R to Play Again]  |  [Press M for Main Menu]"),
+                TextFont {
+                    font_size: 17.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(0.4, 0.85, 1.0)),
+            ));
         });
+}
+
+/// Synchronizes HUD visibility with the current game state.
+pub fn sync_hud_visibility_system(
+    state: Res<State<GameState>>,
+    mut query: Query<&mut Visibility, With<HudRoot>>,
+) {
+    for mut vis in query.iter_mut() {
+        *vis = if *state.get() == GameState::MainMenu {
+            Visibility::Hidden
+        } else {
+            Visibility::Visible
+        };
+    }
+}
+
+/// Allows the player to restart the game or return to the main menu.
+pub fn restart_game_system(
+    mut commands: Commands,
+    keyboard: Res<ButtonInput<KeyCode>>,
+    state: Res<State<GameState>>,
+    mut next_state: ResMut<NextState<GameState>>,
+    mut refuge: ResMut<Refuge>,
+    mut resources: ResMut<PlayerResources>,
+    mut wave_manager: ResMut<WaveManager>,
+    mut occupied: ResMut<OccupiedCells>,
+    enemies: Query<Entity, With<Enemy>>,
+    towers: Query<Entity, With<Tower>>,
+    projectiles: Query<Entity, With<Projectile>>,
+    end_screens: Query<Entity, With<EndGameScreen>>,
+) {
+    if *state.get() == GameState::Playing || *state.get() == GameState::MainMenu {
+        return;
+    }
+
+    let restart_pressed = keyboard.just_pressed(KeyCode::KeyR);
+    let menu_pressed = keyboard.just_pressed(KeyCode::KeyM);
+
+    if restart_pressed || menu_pressed {
+        // 1. Reset Refuge health
+        refuge.health = refuge.max_health;
+
+        // 2. Reset player resources
+        resources.scrap = 150;
+
+        // 3. Reset wave manager
+        *wave_manager = WaveManager::default();
+
+        // 4. Clear grid occupancy
+        occupied.cells.clear();
+
+        // 5. Clean up active combat entities
+        for entity in enemies.iter() {
+            commands.entity(entity).despawn();
+        }
+        for entity in towers.iter() {
+            commands.entity(entity).despawn();
+        }
+        for entity in projectiles.iter() {
+            commands.entity(entity).despawn();
+        }
+        for entity in end_screens.iter() {
+            commands.entity(entity).despawn_recursive();
+        }
+
+        // 6. Transition state
+        if restart_pressed {
+            next_state.set(GameState::Playing);
+        } else {
+            next_state.set(GameState::MainMenu);
+        }
+    }
 }

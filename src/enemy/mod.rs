@@ -1,10 +1,11 @@
 pub mod components;
 pub mod wave;
 
-use bevy::prelude::*;
+use crate::audio::{PlaySoundEvent, SoundEffect};
 use crate::core::resources::Refuge;
 use crate::core::state::GameState;
 use crate::map::path::MapPath;
+use bevy::prelude::*;
 pub use components::{Enemy, Health, PathFollower};
 #[allow(unused_imports)]
 pub use wave::{WaveDef, WaveManager};
@@ -13,16 +14,15 @@ pub struct EnemyPlugin;
 
 impl Plugin for EnemyPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<WaveManager>()
-            .add_systems(
-                Update,
-                (
-                    wave_spawner_system,
-                    enemy_movement_system,
-                    draw_enemy_health_gizmos,
-                )
-                    .run_if(in_state(GameState::Playing)),
-            );
+        app.init_resource::<WaveManager>().add_systems(
+            Update,
+            (
+                wave_spawner_system,
+                enemy_movement_system,
+                draw_enemy_health_gizmos,
+            )
+                .run_if(in_state(GameState::Playing)),
+        );
     }
 }
 
@@ -89,6 +89,7 @@ fn enemy_movement_system(
     time: Res<Time>,
     path: Res<MapPath>,
     mut refuge: ResMut<Refuge>,
+    mut sound_events: EventWriter<PlaySoundEvent>,
     mut enemy_query: Query<(Entity, &Enemy, &mut PathFollower, &mut Transform)>,
 ) {
     let delta_secs = time.delta_secs();
@@ -105,6 +106,7 @@ fn enemy_movement_system(
                 if follower.current_waypoint_idx >= path.waypoints.len() {
                     // Creep breached the human Refuge!
                     refuge.take_damage(enemy.damage);
+                    sound_events.send(PlaySoundEvent(SoundEffect::RefugeAlarm));
                     commands.entity(entity).despawn();
                 }
             } else {
@@ -125,6 +127,9 @@ fn enemy_movement_system(
 /// Draws floating health bars above active enemy entities.
 fn draw_enemy_health_gizmos(mut gizmos: Gizmos, query: Query<(&Transform, &Health), With<Enemy>>) {
     for (transform, health) in query.iter() {
+        if health.current <= 0.0 {
+            continue;
+        }
         let pos = transform.translation.truncate() + Vec2::new(0.0, 16.0);
         let bar_width = 24.0;
         let bar_height = 4.0;

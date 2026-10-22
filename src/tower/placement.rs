@@ -1,9 +1,10 @@
+use super::components::{AttackCooldown, CurrentTarget, PlacementGhost, Tower, TowerRange};
+use crate::audio::{PlaySoundEvent, SoundEffect};
+use crate::core::resources::{PlayerResources, Refuge};
+use crate::map::grid::{OccupiedCells, can_build, grid_to_world, world_to_grid};
+use crate::map::path::MapPath;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
-use crate::core::resources::{PlayerResources, Refuge};
-use crate::map::grid::{can_build, grid_to_world, world_to_grid, OccupiedCells};
-use crate::map::path::MapPath;
-use super::components::{AttackCooldown, CurrentTarget, PlacementGhost, Tower, TowerRange};
 
 pub const TURRET_BUILD_COST: u32 = 50;
 
@@ -23,6 +24,13 @@ pub fn setup_placement_ghost(mut commands: Commands) {
         Transform::from_xyz(0.0, 0.0, 5.0),
         Visibility::Hidden,
     ));
+}
+
+/// Hides the placement ghost when leaving the active playing state.
+pub fn hide_placement_ghost(mut ghost_query: Query<&mut Visibility, With<PlacementGhost>>) {
+    for mut vis in ghost_query.iter_mut() {
+        *vis = Visibility::Hidden;
+    }
 }
 
 /// Converts screen cursor coordinates into 2D world space coordinates.
@@ -61,7 +69,8 @@ pub fn tower_placement_preview_system(
     mut gizmos: Gizmos,
     mut ghost_query: Query<(&mut Transform, &mut Sprite, &mut Visibility), With<PlacementGhost>>,
 ) {
-    let Ok((mut ghost_transform, mut ghost_sprite, mut ghost_vis)) = ghost_query.get_single_mut() else {
+    let Ok((mut ghost_transform, mut ghost_sprite, mut ghost_vis)) = ghost_query.get_single_mut()
+    else {
         return;
     };
 
@@ -107,6 +116,7 @@ pub fn tower_placement_input_system(
     path: Res<MapPath>,
     refuge: Res<Refuge>,
     mut resources: ResMut<PlayerResources>,
+    mut sound_events: EventWriter<PlaySoundEvent>,
 ) {
     if !mouse_button.just_pressed(MouseButton::Left) {
         return;
@@ -128,6 +138,7 @@ pub fn tower_placement_input_system(
     }
 
     occupied.occupy(grid_coord);
+    sound_events.send(PlaySoundEvent(SoundEffect::BuildTurret));
 
     // Spawn Tower base and barrel
     commands.spawn((

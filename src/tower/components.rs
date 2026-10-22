@@ -33,7 +33,9 @@ pub struct AttackCooldown(pub Timer);
 
 impl Default for AttackCooldown {
     fn default() -> Self {
-        Self(Timer::from_seconds(0.75, TimerMode::Repeating))
+        let mut timer = Timer::from_seconds(0.75, TimerMode::Once);
+        timer.set_elapsed(std::time::Duration::from_secs_f32(0.75));
+        Self(timer)
     }
 }
 

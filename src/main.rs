@@ -1,15 +1,19 @@
+mod audio;
 mod combat;
 mod core;
 mod enemy;
+mod iso;
 mod map;
 mod tower;
 mod ui;
 
+use audio::AudioPlugin;
 use bevy::prelude::*;
 use combat::CombatPlugin;
 use core::resources::{PlayerResources, Refuge};
 use core::state::GameState;
 use enemy::EnemyPlugin;
+use iso::IsoPlugin;
 use map::MapPlugin;
 use tower::TowerPlugin;
 use ui::UiPlugin;
@@ -17,17 +21,15 @@ use ui::UiPlugin;
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::srgb(0.05, 0.06, 0.08)))
-        .add_plugins(
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: "CodeKeep — The Last Hope [Prototype]".to_string(),
-                    resolution: (1280.0_f32, 720.0_f32).into(),
-                    resizable: true,
-                    ..default()
-                }),
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "CodeKeep — The Last Hope [Prototype]".to_string(),
+                resolution: (1280.0_f32, 720.0_f32).into(),
+                resizable: true,
                 ..default()
             }),
-        )
+            ..default()
+        }))
         .init_state::<GameState>()
         .init_resource::<PlayerResources>()
         .init_resource::<Refuge>()
@@ -37,6 +39,8 @@ fn main() {
             TowerPlugin,
             CombatPlugin,
             UiPlugin,
+            AudioPlugin,
+            IsoPlugin,
         ))
         .add_systems(Startup, setup_camera)
         .run();

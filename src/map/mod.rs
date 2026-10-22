@@ -1,8 +1,8 @@
 pub mod grid;
 pub mod path;
 
-use bevy::prelude::*;
 use crate::core::resources::{Refuge, RefugeBase};
+use bevy::prelude::*;
 use grid::OccupiedCells;
 use path::MapPath;
 

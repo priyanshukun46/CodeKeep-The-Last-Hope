@@ -1,33 +1,38 @@
 pub mod damage;
+pub mod effects;
 pub mod projectile;
 
-use bevy::prelude::*;
+use crate::audio::{PlaySoundEvent, SoundEffect};
 use crate::core::resources::Refuge;
 use crate::core::state::GameState;
 use crate::enemy::components::{Enemy, Health, PathFollower};
 use crate::enemy::wave::WaveManager;
 use crate::tower::components::{AttackCooldown, CurrentTarget, Tower, TowerRange};
+use bevy::prelude::*;
 pub use damage::DamageEvent;
+#[allow(unused_imports)]
+pub use effects::{HitSpark, LaserTracer};
 pub use projectile::Projectile;
 
 pub struct CombatPlugin;
 
 impl Plugin for CombatPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<DamageEvent>()
-            .add_systems(
-                Update,
-                (
-                    tower_targeting_system,
-                    tower_attack_system,
-                    projectile::projectile_movement_system,
-                    damage::damage_application_system,
-                    damage::enemy_death_system,
-                    combat_state_check_system,
-                )
-                    .chain()
-                    .run_if(in_state(GameState::Playing)),
-            );
+        app.add_event::<DamageEvent>().add_systems(
+            Update,
+            (
+                tower_targeting_system,
+                tower_attack_system,
+                projectile::projectile_movement_system,
+                damage::damage_application_system,
+                damage::enemy_death_system,
+                effects::draw_laser_tracers_system,
+                effects::draw_hit_sparks_system,
+                combat_state_check_system,
+            )
+                .chain()
+                .run_if(in_state(GameState::Playing)),
+        );
     }
 }
 
@@ -70,6 +75,7 @@ fn tower_targeting_system(
 fn tower_attack_system(
     mut commands: Commands,
     time: Res<Time>,
+    mut sound_events: EventWriter<PlaySoundEvent>,
     mut tower_query: Query<(
         &mut Transform,
         &Tower,
@@ -104,7 +110,17 @@ fn tower_attack_system(
         }
 
         // Fire projectile
-        if cooldown.0.just_finished() {
+        if cooldown.0.finished() {
+            cooldown.0.reset();
+            sound_events.send(PlaySoundEvent(SoundEffect::LaserShot));
+
+            // Instant energy tracer beam
+            commands.spawn(LaserTracer {
+                from: tower_pos,
+                to: target_pos,
+                timer: Timer::from_seconds(0.06, TimerMode::Once),
+            });
+
             commands.spawn((
                 Projectile {
                     damage: tower.damage,
